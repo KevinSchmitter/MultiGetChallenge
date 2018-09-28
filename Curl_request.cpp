@@ -2,6 +2,7 @@
 #include "Application_arguments.h"
 #include "curl/include/curl.h"
 #include <iostream>
+#include <mutex>
 
 #pragma comment(lib, "curl/lib/libcurl-d_imp.lib")
 
@@ -18,9 +19,16 @@ Request_chunk::Request_chunk(Application_arguments const & _args, int _idx) : ar
 	chunk.reserve(args.chunk_size);
 }
 
+static std::mutex chunk_complete_cerr_mutex;
+
+static void thread_safe_chunk_complete(int chunk_idx) {
+	std::lock_guard< std::mutex >	guard(chunk_complete_cerr_mutex);
+	std::cerr << std::to_string(chunk_idx) << ", ";
+}
+
 Request_chunk::~Request_chunk() {
 	curl_easy_cleanup(curl_handle);
-	std::cerr << std::to_string(chunk_idx) << ", ";
+	thread_safe_chunk_complete(chunk_idx);
 }
 
 size_t Request_chunk::write_to_chunk(void * buffer, size_t size, size_t nmemb, Request_chunk * request_chunk_p) {
